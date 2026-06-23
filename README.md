@@ -2,11 +2,7 @@
 
 This repository contains the code associated with the manuscript: *Ecological networks balance connectivity with flexibility to perturbations*
 
-The study analyzes ecological interaction networks from the Web of Life and Mangal databases. The corresponding data, processed networks, computed results, and figure inputs are archived on Zenodo:
-
-```text
-Zenodo DOI: https://doi.org/10.5281/zenodo.20670601
-```
+The study analyzes ecological interaction networks from the Web of Life and Mangal databases. The corresponding data, processed networks, computed results, and figure inputs are archived on [Zenodo](https://doi.org/10.5281/zenodo.20670601).
 
 ## Abstract
 The complexity--stability debate in ecology remains unresolved in part because its empirical basis is limited. Most evidence for the predicted decline of connectance with species richness comes from food webs, leaving unclear whether this pattern extends across the full spectrum of ecological interactions. Moreover, existing results remain conceptually unresolved: connectance decreases with diversity, yet both the total number of interactions and the number of interactions per species increase. Here, we analyze 1,500 ecological interaction networks spanning diverse habitats and interaction types. We show that these patterns are broadly shared across ecological interaction networks and can be interpreted through a recent theory of information dynamics in complex networks, in which sparsity is favored by a trade-off between signal propagation and response diversity. Our results suggest that the structural component of the debate may indeed reflect a general architectural regularity of ecological communities rather than a contradiction between theory and nature.
@@ -180,10 +176,11 @@ The original ecological interaction networks are available from:
 - [Web of Life](https://www.web-of-life.es/)
 - [Mangal](https://mangal.io/)
 
-The final processed data release associated with this manuscript is available on Zenodo:
+The final processed data release associated with this manuscript is available on [Zenodo](https://doi.org/10.5281/zenodo.20670601).
 
+Zenodo DOI:
 ```text
-Zenodo DOI: https://doi.org/10.5281/zenodo.20670601
+    https://doi.org/10.5281/zenodo.20670601
 ```
 
 ## Citation

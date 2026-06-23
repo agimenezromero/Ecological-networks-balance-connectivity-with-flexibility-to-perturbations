@@ -180,7 +180,7 @@ The final processed data release associated with this manuscript is available on
 
 Zenodo DOI:
 ```text
-    https://doi.org/10.5281/zenodo.20670601
+https://doi.org/10.5281/zenodo.20670601
 ```
 
 ## Citation

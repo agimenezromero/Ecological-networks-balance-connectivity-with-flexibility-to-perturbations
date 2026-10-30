@@ -1,117 +1,62 @@
 # Ecological networks balance connectivity with flexibility to perturbations
 
-This repository contains the code associated with the manuscript: *Ecological networks balance connectivity with flexibility to perturbations*
+Code accompanying the manuscript *Ecological networks balance connectivity with flexibility to perturbations* by Àlex Giménez-Romero, Daniel Oro, Jordi Bascompte, and Meritxell Genovart.
 
-The study analyzes ecological interaction networks from the Web of Life and Mangal databases. The corresponding data, processed networks, computed results, and figure inputs are archived on [Zenodo](https://doi.org/10.5281/zenodo.20670601).
+This repository contains the scripts and notebooks used to construct and characterize empirical ecological interaction networks, quantify the thermodynamic efficiency of network diffusion, compare empirical networks with null models, assess the effects of link perturbations, and produce the manuscript figures. The associated network data, derived metrics, and precomputed results are archived separately on [Zenodo](https://doi.org/10.5281/zenodo.20670601).
 
 ## Abstract
-The complexity--stability debate in ecology remains unresolved in part because its empirical basis is limited. Most evidence for the predicted decline of connectance with species richness comes from food webs, leaving unclear whether this pattern extends across the full spectrum of ecological interactions. Moreover, existing results remain conceptually unresolved: connectance decreases with diversity, yet both the total number of interactions and the number of interactions per species increase. Here, we analyze 1,500 ecological interaction networks spanning diverse habitats and interaction types. We show that these patterns are broadly shared across ecological interaction networks and can be interpreted through a recent theory of information dynamics in complex networks, in which sparsity is favored by a trade-off between signal propagation and response diversity. Our results suggest that the structural component of the debate may indeed reflect a general architectural regularity of ecological communities rather than a contradiction between theory and nature.
+
+Food webs become progressively sparser as species richness increases, yet the number of interactions grows faster than linearly, placing communities between the limiting expectations of constant degree and constant connectance. Similar scaling has also been documented in other interaction networks, but whether they share a common architectural regime, and what general principle could generate it, remain unresolved. Here, we show that 1,533 ecological networks spanning different interaction types broadly converge on an intermediate link--species scaling regime, with an overall exponent of 1.43. We interpret this pattern through a thermodynamic trade-off in which increasing network connectivity enhances signal propagation while reducing the diversity of independent modes contributing to the network's response to perturbations. Optimizing this trade-off yields a scaling exponent of 1.45, closely matching the empirical estimate, while randomly adding or removing interactions generally reduces thermodynamic efficiency in empirical networks. These results support a propagation--response-diversity trade-off as a plausible systems-level principle underlying how ecological network complexity grows with diversity.
 
 ## Repository contents
 
-This GitHub repository contains only the analysis code. The data required to run the analyses are available from the Zenodo record associated with the manuscript.
-
-The main files are:
-
-```text
-.
-├── network_efficiency_lib.py
-├── null_model_study.py
-├── perturbation_study.py
-├── Figures.ipynb
-├── README.md
-└── LICENSE
-```
-
-The code is organized as follows:
-
-- `network_efficiency_lib.py`: shared functions used across the analyses;
-- `null_model_study.py`: script to compute null-model network efficiencies;
-- `perturbation_study.py`: script to compute link-addition and link-removal perturbation analyses;
-- `Figures.ipynb`: notebook used to reproduce the manuscript and Supplementary Information figures.
+| File | Description |
+| --- | --- |
+| `Mangal.ipynb` | Julia notebook for retrieving Mangal networks, exporting network files, and assembling metadata. |
+| `studies_networks_dataset.ipynb` | Processes the ecological networks and computes structural network metrics, including connectance, degree statistics, modularity, and diffusion time. |
+| `network_efficiency_lib.py` | Python functions for spectral and thermodynamic quantities, diffusion times, ER/CM/Curveball null models, and link perturbations. |
+| `null_model_study.py` | Computes thermodynamic efficiency for randomized network ensembles. |
+| `perturbation_study.py` | Computes changes in thermodynamic efficiency following random link additions and removals. |
+| `network_efficiency.ipynb` | Generates the conceptual illustration of propagation, response diversity, and thermodynamic efficiency (main-text Fig. 2). |
+| `Figures.ipynb` | Performs dataset selection, scaling analyses, comparisons with null-model outputs, and plotting for the main text and Supplementary Information. |
+| `LICENSE` | GNU General Public License, version 3. |
 
 ## Data
 
-The data are not stored in this GitHub repository.
+The networks originate from [Web of Life](https://www.web-of-life.es/) and [Mangal](https://mangal.io/). The initial collection comprised **1,801 network files**. After applying the study's filtering criteria and removing **36 duplicate networks** identified across the source databases, the final structural analysis comprises **1,533 networks**. Analyses of thermodynamic efficiency use a subset of **1,268 networks** with more than five species.
 
-To reproduce the analyses, download the corresponding Zenodo archive and place the relevant folders in the root directory of this repository. The expected structure is:
+The [Zenodo archive](https://doi.org/10.5281/zenodo.20670601) includes the underlying network files, metadata, derived structural metrics, and precomputed thermodynamic, null-model, and perturbation outputs. It retains files for networks excluded from the final analyses; the selection and cross-database deduplication are implemented in `Figures.ipynb`. Consequently, the number of GraphML or result files in the archive is not the number of networks included in every analysis.
 
-```text
-.
-├── Data/
-│   ├── networks/
-│   │   └── *.graphml
-│   ├── mangal/
-│   ├── web-of-life/
-│   └── processed/
-│       └── network_metrics.csv
-├── Results/
-│   └── efficiency/
-│       ├── null_models/
-│       └── perturbations/
-├── network_efficiency_lib.py
-├── null_model_study.py
-├── perturbation_study.py
-└── Figures.ipynb
-```
-
-The Zenodo archive contains:
-
-- raw ecological-network data from Web of Life and Mangal;
-- the final set of ecological networks used in the study, stored in GraphML format;
-- processed structural network metrics;
-- precomputed outputs required to reproduce the figures;
-- the complete data release associated with the manuscript.
-
-The final analysed dataset contains 1,569 ecological interaction networks. The efficiency analyses were performed on the subset of 1,304 networks with more than five species.
-
-## Code
-
-The main analysis functions are defined in:
+The analysis notebooks expect the Zenodo `Data/` and `Results/` folders to be placed in the repository's working directory, with paths such as:
 
 ```text
-network_efficiency_lib.py
+Data/
+├── networks/                         # Network files (*.graphml)
+├── mangal/                           # Source data and network metadata
+├── web_of_life/                      # Source data and study references
+└── NatComm_data.csv                  # External network comparison data
+
+Results/
+├── field_studies_metrics_network.csv # Computed structural metrics
+├── Communities_A/                    # Individual degree distributions
+└── efficiency/
+    ├── null_models/                  # ER, CM and CB results
+    └── perturbations/                # Link addition/removal results
 ```
 
-This file includes functions to:
+## Analyses
 
-- compute the thermodynamic spectrum of a network;
-- compute network efficiency across propagation scales;
-- estimate diffusion time;
-- generate Erdős--Rényi null networks;
-- generate configuration-model null networks;
-- generate Curveball fixed-marginal null networks for bipartite networks;
-- perform link-addition and link-removal perturbation analyses.
+The common Python implementation is in `network_efficiency_lib.py`. It uses the graph Laplacian to calculate diffusion-based entropy, free-energy changes, thermodynamic efficiency, and characteristic diffusion times. It also implements three network randomization approaches:
 
-The null-model and perturbation scripts import functions from this shared library.
+- **Erdős–Rényi (ER):** randomly places links while preserving network size and expected interaction density; bipartite randomizations restrict links to the two node sets.
+- **Configuration model (CM):** accounts for empirical degree heterogeneity. For topologically bipartite networks, the canonical bipartite configuration model (BiCM) preserves each node's degree *in expectation*; for non-bipartite networks, a configuration-model multigraph is converted into a simple graph by removing self-loops and multiple edges.
+- **Curveball (CB):** randomizes topologically bipartite networks through fixed-marginal trades, preserving the degree of every node and the total number of links exactly.
 
-## Software requirements
+The perturbation experiment compares the efficiency of empirical networks with that of networks obtained by randomly adding or removing a specified percentage of links. The current scripts process the GraphML files they find in `Data/networks/`; the final analysis subset is selected in `Figures.ipynb`.
 
-The analyses were run in Python. The main dependencies are:
+### Running the scripts
 
-```text
-numpy
-pandas
-networkx
-```
-
-A minimal conda environment can be created with:
-
-```bash
-conda create -n network-efficiency
-conda activate network-efficiency
-conda install -c conda-forge numpy pandas networkx
-```
-
-Alternatively, install the dependencies in any existing Python environment or with `pip`.
-
-## Reproducing the analyses
-
-All commands below assume that they are run from the root directory of the repository after downloading and placing the Zenodo data folders in the expected location.
-
-### 1. Compute null-model efficiencies
-
-Null-model analyses can be run with:
+With the Zenodo data in the expected directories, the null-model script accepts one of three model labels:
 
 ```bash
 python null_model_study.py ER
@@ -119,78 +64,31 @@ python null_model_study.py CM
 python null_model_study.py CB
 ```
 
-where:
+It uses 100 realizations per network and writes ensemble summaries under `Results/efficiency/null_models/`. CB is applied only when the graph is topologically bipartite.
 
-- `ER` is the Erdős--Rényi null model;
-- `CM` is the configuration-model null model;
-- `CB` is the Curveball fixed-marginal null model.
-
-For bipartite networks, the ER and CM randomizations preserve the bipartite structure. The Curveball null model is defined only for bipartite networks and preserves row and column sums of the bipartite incidence matrix.
-
-The analyses use 100 null realizations per empirical network unless otherwise specified in the code.
-
-### 2. Compute perturbation analyses
-
-Perturbation analyses can be run with:
+The perturbation script processes one GraphML network selected by its index in the file list:
 
 ```bash
-python perturbation_study.py <network_index>
+python perturbation_study.py 0
 ```
 
-where `<network_index>` is the index of the network in the sorted list of GraphML files in `Data/networks/`.
+It uses 100 realizations for each perturbation percentage from 1% to 10%, saving summaries to `Results/efficiency/perturbations/percentage_<p>/`. The index is currently based on the file order returned by Python's `glob.glob`, which is not guaranteed to be stable across environments; check or explicitly sort the input file list when selecting a particular network.
 
-The perturbation analysis randomly adds or removes a given percentage of links and compares the resulting efficiency with that of the empirical network. For bipartite networks, link additions are restricted to cross-guild interactions.
+The figure notebooks use the precomputed results supplied on Zenodo. `network_efficiency.ipynb` generates the conceptual figure, while `Figures.ipynb` assembles the empirical scaling, efficiency, null-model, perturbation, and supplementary analyses. The latter includes the filtering and duplicate-removal steps used to construct the final analytical dataset.
 
-For cluster execution, this script can be submitted as an array job, with one index per network.
+## Software
 
-### 3. Reproduce figures
+The analysis code uses Python with NumPy, pandas, NetworkX, SciPy, Matplotlib, seaborn, statsmodels, powerlaw, cartopy, and uncvalue, together with a Jupyter notebook environment. `Mangal.ipynb` uses Julia and the `Mangal`, `DataFrames`, `CSV`, `Graphs`, and `PyCall` packages. The Julia notebook was authored using a Julia 1.12 kernel.
 
-The manuscript and Supplementary Information figures can be reproduced with the notebook:
-
-```text
-Figures.ipynb
-```
-
-The notebook reads the processed data and computed results from the Zenodo archive and regenerates the figures used in the manuscript and Supplementary Information.
-
-## Notes on null models
-
-The study uses a hierarchy of null models.
-
-The Erdős--Rényi null model preserves the number of nodes and expected connectance. For bipartite networks, links are placed only between the two node sets.
-
-The configuration-model null model preserves the degree sequence. For bipartite networks, rewiring is restricted to links between partitions, preserving the degree of each species while maintaining the bipartite structure.
-
-The Curveball null model is applied only to bipartite networks. It randomizes the bipartite incidence matrix through repeated pairwise trades while preserving both row and column sums. Thus, each species retains its empirical number of interaction partners within its guild.
-
-## Reproducibility notes
-
-Some computations, especially null-model and perturbation analyses, can be computationally expensive. The Zenodo archive includes the precomputed outputs used to generate the manuscript figures. The code in this repository can be used to recompute these outputs from the final GraphML networks.
-
-The scripts sort the list of GraphML files before running analyses so that command-line indices correspond to the same networks across systems.
-
-## Data availability
-
-The original ecological interaction networks are available from:
-
-- [Web of Life](https://www.web-of-life.es/)
-- [Mangal](https://mangal.io/)
-
-The final processed data release associated with this manuscript is available on [Zenodo](https://doi.org/10.5281/zenodo.20670601).
-
-Zenodo DOI:
-```text
-https://doi.org/10.5281/zenodo.20670601
-```
+The required Python packages depend on which analyses are run: the numerical scripts use a smaller subset, whereas `Figures.ipynb` includes the plotting and statistical packages listed above.
 
 ## Citation
 
-If you use this code, please cite the associated manuscript:
+If you use this code or the associated processed dataset, please cite the accompanying manuscript and the archived data record:
 
-```text
-Giménez-Romero, À. et al. Ecological networks balance connectivity with flexibility to perturbations.
-```
+- Giménez-Romero, À., Oro, D., Bascompte, J., and Genovart, M. *Ecological networks balance connectivity with flexibility to perturbations*. Manuscript.
+- [Associated data and computational results (Zenodo)](https://doi.org/10.5281/zenodo.20670601).
 
 ## License
 
-Please see the `LICENSE` file for reuse terms.
+The code in this repository is released under the [GNU General Public License v3.0](LICENSE). Data originating from third-party repositories remain subject to their respective attribution and reuse terms.

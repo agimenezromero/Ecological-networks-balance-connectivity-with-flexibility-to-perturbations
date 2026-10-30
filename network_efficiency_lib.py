@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 
+from scipy.optimize import minimize
+from scipy.special import expit, logit
+
 import os, glob
 
 
@@ -27,7 +30,11 @@ def thermo_spectrum(G, τ):
     dF = np.log(N) - np.log(Z)
     dS = np.sum(-p * np.log(p)) - np.log(N)
 
-    eta = (dF + dS) / dF
+    # eta = (dF + dS) / dF
+    if dF <= 1e-12:
+        eta = np.nan
+    else:
+        eta = (dF + dS) / dF
 
     return dS, dF, eta
 
@@ -196,83 +203,159 @@ def er_null_model(G, seed=None):
         return G_er
 
 
-def bipartite_degree_preserving_rewire(G, n_swaps=None, seed=None, max_tries=None):
-    """
-    Degree-preserving bipartite rewiring using double-edge swaps.
+# This is essentially the same as CurveBall. Left here for reference, but not used in the current implementation.
 
-    Starting from the empirical bipartite graph, repeatedly replaces
-    (u1, v1), (u2, v2) with (u1, v2), (u2, v1), preserving all node degrees
-    and keeping the graph simple and bipartite.
+# def bipartite_degree_preserving_rewire(G, n_swaps=None, seed=None, max_tries=None):
+#     """
+#     Degree-preserving bipartite rewiring using double-edge swaps.
+
+#     Starting from the empirical bipartite graph, repeatedly replaces
+#     (u1, v1), (u2, v2) with (u1, v2), (u2, v1), preserving all node degrees
+#     and keeping the graph simple and bipartite.
+#     """
+#     rng = np.random.default_rng(seed)
+
+#     U, V = get_bipartite_sets(G)
+#     U = set(U)
+#     V = set(V)
+
+#     G_new = G.copy()
+
+#     # Keep only correctly oriented bipartite edges
+#     edges = []
+#     for a, b in G_new.edges():
+#         if a in U and b in V:
+#             edges.append((a, b))
+#         elif a in V and b in U:
+#             edges.append((b, a))
+
+#     # Cannot perform a double-edge swap with fewer than two edges
+#     if len(edges) < 2:
+#         print(
+#             f"Skipping bipartite CM rewiring for small network: {G.graph.get('name', 'unknown')}"
+#         )
+#         return G_new
+
+#     if n_swaps is None:
+#         n_swaps = 10 * len(edges)
+
+#     if n_swaps <= 0:
+#         return G_new
+
+#     if max_tries is None:
+#         max_tries = 100 * n_swaps
+
+#     swaps = 0
+#     tries = 0
+
+#     while swaps < n_swaps and tries < max_tries:
+#         tries += 1
+
+#         idx1, idx2 = rng.choice(len(edges), size=2, replace=False)
+
+#         a, b = edges[idx1]
+#         c, d = edges[idx2]
+
+#         # Need four distinct nodes
+#         if len({a, b, c, d}) < 4:
+#             continue
+
+#         new_e1 = (a, d)
+#         new_e2 = (c, b)
+
+#         # Avoid duplicate edges
+#         if G_new.has_edge(*new_e1) or G_new.has_edge(*new_e2):
+#             continue
+
+#         G_new.remove_edge(a, b)
+#         G_new.remove_edge(c, d)
+#         G_new.add_edge(*new_e1)
+#         G_new.add_edge(*new_e2)
+
+#         # Update edge list
+#         edges[idx1] = new_e1
+#         edges[idx2] = new_e2
+
+#         swaps += 1
+
+#     return G_new
+
+
+def fit_soft_bicm(G):
     """
+    Fit the soft bipartite configuration model (BiCM).
+
+    Returns interaction probabilities that preserve each
+    species' empirical degree in expectation.
+    """
+    U, V = get_bipartite_sets(G)
+    U, V = list(U), list(V)
+
+    n_u, n_v = len(U), len(V)
+
+    ku = np.array([G.degree(u) for u in U], dtype=float)
+    kv = np.array([G.degree(v) for v in V], dtype=float)
+
+    # Maximum-entropy objective and gradient
+    def objective(z):
+        logits = z[:n_u, None] + z[None, n_u:]
+        P = expit(logits)
+
+        loss = np.logaddexp(0, logits).sum() - np.dot(ku, z[:n_u]) - np.dot(kv, z[n_u:])
+
+        gradient = np.concatenate((P.sum(axis=1) - ku, P.sum(axis=0) - kv))
+
+        return loss, gradient
+
+    # Initialize using empirical degree information
+    x0 = np.concatenate((logit((ku + 0.5) / (n_v + 1)), np.zeros(n_v)))
+
+    result = minimize(
+        objective,
+        x0,
+        jac=True,
+        method="L-BFGS-B",
+        bounds=[(-30, 30)] * (n_u + n_v),
+        options={"maxiter": 2000, "ftol": 1e-12},
+    )
+
+    logits = result.x[:n_u, None] + result.x[None, n_u:]
+    P = expit(logits)
+
+    # Check that expected degrees match empirical degrees
+    error = max(np.max(np.abs(P.sum(axis=1) - ku)), np.max(np.abs(P.sum(axis=0) - kv)))
+
+    if error > 1e-2:
+        raise RuntimeError(
+            f"BiCM fit did not converge sufficiently: "
+            f"maximum degree error = {error:.4g}"
+        )
+
+    return U, V, P
+
+
+def sample_soft_bicm(G, bicm_fit, seed=None):
+    """
+    Sample a bipartite network from fitted BiCM probabilities.
+
+    Degrees and number of links are preserved in expectation,
+    but can vary between realizations.
+    """
+    U, V, P = bicm_fit
     rng = np.random.default_rng(seed)
 
-    U, V = get_bipartite_sets(G)
-    U = set(U)
-    V = set(V)
+    G_new = nx.Graph()
+    G_new.add_nodes_from(G.nodes(data=True))
+    G_new.graph.update(G.graph)
 
-    G_new = G.copy()
+    rows, cols = np.where(rng.random(P.shape) < P)
 
-    # Keep only correctly oriented bipartite edges
-    edges = []
-    for a, b in G_new.edges():
-        if a in U and b in V:
-            edges.append((a, b))
-        elif a in V and b in U:
-            edges.append((b, a))
-
-    # Cannot perform a double-edge swap with fewer than two edges
-    if len(edges) < 2:
-        print(
-            f"Skipping bipartite CM rewiring for small network: {G.graph.get('name', 'unknown')}"
-        )
-        return G_new
-
-    if n_swaps is None:
-        n_swaps = 10 * len(edges)
-
-    if n_swaps <= 0:
-        return G_new
-
-    if max_tries is None:
-        max_tries = 100 * n_swaps
-
-    swaps = 0
-    tries = 0
-
-    while swaps < n_swaps and tries < max_tries:
-        tries += 1
-
-        idx1, idx2 = rng.choice(len(edges), size=2, replace=False)
-
-        a, b = edges[idx1]
-        c, d = edges[idx2]
-
-        # Need four distinct nodes
-        if len({a, b, c, d}) < 4:
-            continue
-
-        new_e1 = (a, d)
-        new_e2 = (c, b)
-
-        # Avoid duplicate edges
-        if G_new.has_edge(*new_e1) or G_new.has_edge(*new_e2):
-            continue
-
-        G_new.remove_edge(a, b)
-        G_new.remove_edge(c, d)
-        G_new.add_edge(*new_e1)
-        G_new.add_edge(*new_e2)
-
-        # Update edge list
-        edges[idx1] = new_e1
-        edges[idx2] = new_e2
-
-        swaps += 1
+    G_new.add_edges_from((U[i], V[j]) for i, j in zip(rows, cols))
 
     return G_new
 
 
-def cm_null_model(G, seed=None):
+def cm_null_model(G, seed=None, bicm_fit=None):
     """
     Degree-preserving null model.
 
@@ -281,9 +364,10 @@ def cm_null_model(G, seed=None):
     uses a simple configuration-model approximation.
     """
     if nx.is_bipartite(G):
-        return bipartite_degree_preserving_rewire(
-            G, n_swaps=10 * G.number_of_edges(), seed=seed
-        )
+        if bicm_fit is None:
+            bicm_fit = fit_soft_bicm(G)
+
+        return sample_soft_bicm(G, bicm_fit, seed=seed)
 
     degree_sequence = [d for _, d in G.degree()]
 
@@ -418,6 +502,16 @@ def compute_network_efficiency_null_model(
 
         G_empirical = nx.read_graphml(filename)
 
+        if G_empirical.number_of_nodes() == 0:
+            print(f"Empty empirical network: {filename}, skipping...")
+            continue
+
+        if G_empirical.number_of_nodes() < 2 or G_empirical.number_of_edges() == 0:
+            print(
+                f"Skipping {filename}: {G_empirical.number_of_nodes()} nodes, {G_empirical.number_of_edges()} links"
+            )
+            continue
+
         if model == "CB" and not nx.is_bipartite(G_empirical):
             print(
                 f"Skipping {filename}: Curveball null model requires a bipartite network."
@@ -431,9 +525,14 @@ def compute_network_efficiency_null_model(
             print(f"File {output_file} already exists, skipping...")
             continue
 
-        entropy_arr = np.zeros((num_to_compute, len(τs)))
-        free_energy_arr = np.zeros((num_to_compute, len(τs)))
-        ηs_arr = np.zeros((num_to_compute, len(τs)))
+        bicm_fit = None
+
+        if model == "CM" and nx.is_bipartite(G_empirical):
+            bicm_fit = fit_soft_bicm(G_empirical)
+
+        entropy_arr = np.full((num_to_compute, len(τs)), np.nan)
+        free_energy_arr = np.full((num_to_compute, len(τs)), np.nan)
+        ηs_arr = np.full((num_to_compute, len(τs)), np.nan)
 
         # Print progress
         print(
@@ -446,8 +545,6 @@ def compute_network_efficiency_null_model(
 
             id = filename.split("/")[-1].split(".")[0]
 
-            G_empirical = nx.read_graphml(filename)
-
             if G_empirical.number_of_edges() == 0:
                 print(f"\n\t\tGraph has no edges, skipping...")
                 break
@@ -459,7 +556,7 @@ def compute_network_efficiency_null_model(
                 G = er_null_model(G_empirical, seed=k)
 
             elif model == "CM":
-                G = cm_null_model(G_empirical, seed=k)
+                G = cm_null_model(G_empirical, seed=k, bicm_fit=bicm_fit)
 
             elif model == "CB":
                 if not nx.is_bipartite(G_empirical):
